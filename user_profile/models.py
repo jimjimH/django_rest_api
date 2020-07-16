@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+
 class Profile(models.Model):
     GENDER_CHOICES = [
         ('M', 'Male'),
