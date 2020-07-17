@@ -1,0 +1,12 @@
+{% for user in users %}
+    <p>{{user.profile.gender}}</p>
+{% endfor %}
+<form name='my_form' action='.' method='POST'>
+    {% csrf_token %}
+    <div>
+        {{ user_form.as_p }}
+        {{  profile_form.as_p }}
+    </div>
+    <input type="submit">
+
+</form>

@@ -22,4 +22,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # path('index/', index)
     path('', include('user_profile.urls')),
+    
+    # REST FRAMEWORK URLS
+    path('api/user_profile/', include('user_profile.api.urls', namespace="user_profile_api")),
 ]
