@@ -1,3 +1,4 @@
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from user_profile.models import Profile
 from user_profile.api.seriaiizers import ProfileSerializer, UserSerializer
@@ -6,6 +7,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.parsers import JSONParser
+from rest_framework.authtoken.models import Token
 
 
 @api_view(['GET'])
@@ -70,8 +72,7 @@ def api_delete_user_view(request, id):
 @api_view(['POST'])
 def api_create_user_view(request):
     if request.method == 'POST':
-        # data = JSONParser().parse(request)
-        data = request.data
+        data = JSONParser().parse(request)
         # 先存user
         user_serializer = UserSerializer(data=data)
         if user_serializer.is_valid():
@@ -88,8 +89,27 @@ def api_create_user_view(request):
             else:
                 new_user.delete()  # 驗證失敗時，把已經儲存的user刪掉
                 return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        token = Token.objects.get(user=new_user).key
         message = {
             'user': user_serializer.data,
-            'profile': profile_serializer.data
+            'profile': profile_serializer.data,
+            'token': token
         }
         return Response(message, status=status.HTTP_201_CREATED)
+
+@api_view(['POST'])
+def obtain_auth_token(request):
+    if request.method == 'POST':
+        data = JSONParser().parse(request)
+        user = authenticate(
+            username=data.get('username', ''), 
+            password=data.get('password', '')
+            )
+        print(user)
+        if user is not None:
+            token = Token.objects.get(user=user).key
+            # print(type(token))
+            return Response({"token": token})
+        else:
+            print(123)
+            return Response({"failure": "login failed, wrong username or password"}, status=status.HTTP_400_BAD_REQUEST)
