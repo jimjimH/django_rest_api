@@ -8,7 +8,6 @@ from user_profile.api.views import (
     obtain_auth_token,
 )
 
-
 app_name = 'user_profile'
 
 urlpatterns = [
