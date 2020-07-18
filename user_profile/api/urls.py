@@ -19,8 +19,3 @@ urlpatterns = [
     # User login
     path('login/', obtain_auth_token, name='login'),
 ]
-
-# GET    /user_profile/<id>
-# PUT    /user_profile/<id>/update
-# DELETE /user_profile/<id>/delete
-# POST   /user_profile/create/ 
