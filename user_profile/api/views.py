@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from user_profile.models import Profile
-from user_profile.api.seriaiizers import ProfileSerializer, UserSerializer
+from user_profile.api.serializers import ProfileSerializer, UserSerializer
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -124,11 +124,8 @@ def obtain_auth_token(request):
             username=data.get('username', ''),
             password=data.get('password', '')
         )
-        print(user)
         if user is not None:
             token = Token.objects.get(user=user).key
-            # print(type(token))
             return Response({"token": token})
         else:
-            print(123)
             return Response({"failure": "login failed, wrong username or password"}, status=status.HTTP_400_BAD_REQUEST)
