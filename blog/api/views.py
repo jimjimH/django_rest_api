@@ -13,7 +13,12 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
+from rest_framework.authentication import TokenAuthentication
 from rest_framework.authtoken.models import Token
+from rest_framework.generics import ListAPIView
+from rest_framework.filters import SearchFilter, OrderingFilter
+
+from datetime import datetime, timedelta
 
 
 @permission_classes((IsAuthenticated,))
@@ -21,7 +26,6 @@ from rest_framework.authtoken.models import Token
 def api_detail_blog_view(request, id):
     try:
         blog = Blog.objects.get(pk=id)
-        blog_tag = Blog_Tag.objects.filter(blog=blog)
     except Blog.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -30,7 +34,6 @@ def api_detail_blog_view(request, id):
     if request.method == 'GET':
         blog_serializer = QueryBlogSerializer(blog)
         message['blog'] = blog_serializer.data
-        message['blog']['tags'] = [i.tag.id for i in blog_tag]
         return Response(message)
 
 
@@ -92,3 +95,45 @@ def api_create_blog_view(request):
             'user': blog_serializer.data,
         }
         return Response(message, status=status.HTTP_201_CREATED)
+
+
+@permission_classes((IsAuthenticated,))
+@api_view(['GET'])
+def api_lastet_blog_view(request):
+    try:
+        blog = Blog.objects.filter(
+            created_at__gte=datetime.now()-timedelta(days=1))
+    except Blog.DoesNotExist:
+        return Response({'Response': "No latest blogs."}, status=status.HTTP_404_NOT_FOUND)
+
+    message = {}
+
+    if request.method == 'GET':
+        blog_serializer = QueryBlogSerializer(blog, many=True)
+        message['blog'] = blog_serializer.data
+        return Response(message)
+
+
+@permission_classes((IsAuthenticated,))
+@api_view(['GET'])
+def api_tag_blog_view(request, tag_id):
+    try:
+        blog = Blog.objects.filter(blog_tag__tag_id=tag_id)
+    except Blog.DoesNotExist:
+        return Response({'Response': "No latest blogs."}, status=status.HTTP_404_NOT_FOUND)
+
+    message = {}
+
+    if request.method == 'GET':
+        blog_serializer = QueryBlogSerializer(blog, many=True)
+        message['blog'] = blog_serializer.data
+        return Response(message)
+
+
+class api_search_blog_view(ListAPIView):
+    queryset = Blog.objects.all()
+    serializer_class = QueryBlogSerializer
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+    filter_backends = (SearchFilter, OrderingFilter)
+    search_fields = ('title',)

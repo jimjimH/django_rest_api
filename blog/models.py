@@ -15,16 +15,16 @@ class Tag(models.Model):
 
 
 class Blog(models.Model):
-    title = models.CharField(max_length=100, blank=True, null=False)
-    body = models.TextField(max_length=5000, blank=True, null=False)
+    title = models.CharField(max_length=100, blank=False, null=False)
+    body = models.TextField(max_length=5000, blank=False, null=False)
     pub_time = models.DateTimeField(
-        auto_now=True, verbose_name="published date")
+        auto_now_add=True, verbose_name="published date")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f'{self.title} - {str(self.user.username)}'
+        return f'{str(self.id)}-{self.title}-{str(self.user.id)}-{self.user.username}'
 
 
 class Blog_Tag(models.Model):
@@ -33,4 +33,4 @@ class Blog_Tag(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f'{self.tag.name} - {str(self.blog.title)}'
+        return f'{self.tag.name}-{str(self.blog.id)}-{self.blog.title}'
