@@ -21,6 +21,8 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from datetime import datetime, timedelta
 from django.db import transaction
 
+import logging
+
 
 @permission_classes((IsAuthenticated,))
 @api_view(['GET'])
@@ -48,23 +50,30 @@ def api_update_blog_view(request, id):
 
     authenticated_user = request.user
     if blog.user != authenticated_user:
-        return Response({'Response': "You don't have permission to edit it."})
+        return Response({'response': "You don't have permission to edit it."})
 
     if request.method == 'PUT':
         data = JSONParser().parse(request)
         blog_serializer = CreateUpdateBlogSerializer(blog, data=data)
         if blog_serializer.is_valid():
-            blog_serializer.save()
-            # 刪除舊tags，再新建tags
-            blog.blog_tag_set.all().delete()
-            wanted_tag_id = data.get('tags', [])
-            wanted_tag_obj = Tag.objects.filter(id__in=wanted_tag_id).all()
-            if wanted_tag_id:
-                Blog_Tag.objects.bulk_create(
-                    [Blog_Tag(tag=tag_obj, blog=blog)
-                     for tag_obj in wanted_tag_obj]
-                )
+            try:
+                with transaction.atomic():
+                    blog_serializer.save()
+                    # 刪除舊tags，再新建tags
+                    blog.blog_tag_set.all().delete()
+                    wanted_tag_id = data.get('tags', [])
+                    wanted_tag_obj = Tag.objects.filter(id__in=wanted_tag_id).all()
+                    if wanted_tag_id:
+                        Blog_Tag.objects.bulk_create(
+                            [Blog_Tag(tag=tag_obj, blog=blog)
+                             for tag_obj in wanted_tag_obj]
+                        )
+            except Exception as err:
+                logging.error(err)
+                return Response({'response': 'DB safe failed.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
             return Response({"success": "update successful"}, status=status.HTTP_202_ACCEPTED)
+            
         else:
             return Response(blog_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -79,7 +88,7 @@ def api_delete_blog_view(request, id):
 
     authenticated_user = request.user
     if blog.user != authenticated_user:
-        return Response({'Response': "You don't have permission to delete it."})
+        return Response({'response': "You don't have permission to delete it."})
 
     if request.method == 'DELETE':
         operation = blog.delete()  # 刪除blog會一併刪除blog_tags
@@ -97,15 +106,21 @@ def api_create_blog_view(request):
         blog = Blog(user=request.user)
         blog_serializer = CreateUpdateBlogSerializer(data=data, instance=blog)
         if blog_serializer.is_valid():
-            new_blog = blog_serializer.save()
-            # 新增tags
-            wanted_tag_id = data.get('tags', [])
-            wanted_tag_obj = Tag.objects.filter(id__in=wanted_tag_id).all()
-            if wanted_tag_id:
-                Blog_Tag.objects.bulk_create(
-                    [Blog_Tag(tag=tag_obj, blog=new_blog)
-                     for tag_obj in wanted_tag_obj]
-                )
+            try:
+                with transaction.atomic():
+                    new_blog = blog_serializer.save()
+                    # 新增tags
+                    wanted_tag_id = data.get('tags', [])
+                    wanted_tag_obj = Tag.objects.filter(id__in=wanted_tag_id).all()
+                    if wanted_tag_id:
+                        Blog_Tag.objects.bulk_create(
+                            [Blog_Tag(tag=tag_obj, blog=new_blog)
+                             for tag_obj in wanted_tag_obj]
+                        )
+            except Exception as err:
+                logging.error(err)
+                return Response({'response': 'DB safe failed.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
         else:
             return Response(blog_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

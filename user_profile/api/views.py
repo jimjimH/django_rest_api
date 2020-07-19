@@ -10,6 +10,9 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import JSONParser
 from rest_framework.authtoken.models import Token
 
+from django.db import transaction
+import logging
+
 
 @permission_classes((IsAuthenticated,))
 @api_view(['GET'])
@@ -47,18 +50,21 @@ def api_update_user_view(request, id):
         data = JSONParser().parse(request)
         user_serializer = UserSerializer(user, data=data)
         profile_serializer = ProfileSerializer(profile, data=data)
-        if user_serializer.is_valid():
-            user = user_serializer.save()
-            if data['password']:
-                user.set_password(data.get('password'))
-                user.save()
-        else:
-            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        if profile_serializer.is_valid():
-            profile_serializer.save()
-        else:
-            return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                if user_serializer.is_valid():
+                    if profile_serializer.is_valid():
+                        user = user_serializer.save()
+                        if data['password']:
+                            user.set_password(data.get('password'))
+                            user.save()
+                    else:
+                        return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as err:
+            logging.error(err)
+            return Response({'response': 'DB safe failed.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({"success": "update successful"}, status=status.HTTP_202_ACCEPTED)
 
@@ -91,22 +97,29 @@ def api_create_user_view(request):
         data = JSONParser().parse(request)
         # 先存user
         user_serializer = UserSerializer(data=data)
-        if user_serializer.is_valid():
-            new_user = user_serializer.save()
-            new_user.set_password(data.get('password'))
-            new_user.save()
-        else:
-            return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                if user_serializer.is_valid():
+                    new_user = user_serializer.save()
+                    new_user.set_password(data.get('password'))
+                    new_user.save()
+                else:
+                    return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # 再存profile
-        if new_user is not None:
-            profile = Profile(user=new_user)
-            profile_serializer = ProfileSerializer(data=data, instance=profile)
-            if profile_serializer.is_valid():
-                profile_serializer.save()
-            else:
-                new_user.delete()  # 驗證失敗時，把已經儲存的user刪掉
-                return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                # 再存profile
+                if new_user is not None:
+                    profile = Profile(user=new_user)
+                    profile_serializer = ProfileSerializer(
+                        data=data, instance=profile)
+                    if profile_serializer.is_valid():
+                        profile_serializer.save()
+                    else:
+                        new_user.delete()  # 驗證失敗時，把已經儲存的user刪掉
+                        return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as err:
+            logging.error(err)
+            return Response({'response': 'DB safe failed.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         token = Token.objects.get(user=new_user).key
         message = {
             'user': user_serializer.data,
