@@ -19,6 +19,6 @@ urlpatterns = [
     path('<int:id>/delete/', api_delete_blog_view, name='delete'),
     path('create/', api_create_blog_view, name='create'),
     path('latest/', api_lastet_blog_view, name='latest'),
-    path('tag/<int:tag_id>', api_tag_blog_view, name='tag'),
+    path('tag/<int:tag_id>/', api_tag_blog_view, name='tag'),
     path('list/', api_search_blog_view.as_view(), name='search'),
 ]

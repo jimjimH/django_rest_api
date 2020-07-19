@@ -19,6 +19,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from datetime import datetime, timedelta
+from django.db import transaction
 
 
 @permission_classes((IsAuthenticated,))
@@ -54,6 +55,15 @@ def api_update_blog_view(request, id):
         blog_serializer = CreateUpdateBlogSerializer(blog, data=data)
         if blog_serializer.is_valid():
             blog_serializer.save()
+            # 刪除舊tags，再新建tags
+            blog.blog_tag_set.all().delete()
+            wanted_tag_id = data.get('tags', [])
+            wanted_tag_obj = Tag.objects.filter(id__in=wanted_tag_id).all()
+            if wanted_tag_id:
+                Blog_Tag.objects.bulk_create(
+                    [Blog_Tag(tag=tag_obj, blog=blog)
+                     for tag_obj in wanted_tag_obj]
+                )
             return Response({"success": "update successful"}, status=status.HTTP_202_ACCEPTED)
         else:
             return Response(blog_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -88,11 +98,19 @@ def api_create_blog_view(request):
         blog_serializer = CreateUpdateBlogSerializer(data=data, instance=blog)
         if blog_serializer.is_valid():
             new_blog = blog_serializer.save()
+            # 新增tags
+            wanted_tag_id = data.get('tags', [])
+            wanted_tag_obj = Tag.objects.filter(id__in=wanted_tag_id).all()
+            if wanted_tag_id:
+                Blog_Tag.objects.bulk_create(
+                    [Blog_Tag(tag=tag_obj, blog=new_blog)
+                     for tag_obj in wanted_tag_obj]
+                )
         else:
             return Response(blog_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         message = {
-            'user': blog_serializer.data,
+            'blog': blog_serializer.data,
         }
         return Response(message, status=status.HTTP_201_CREATED)
 
